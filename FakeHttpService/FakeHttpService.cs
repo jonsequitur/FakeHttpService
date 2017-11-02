@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -18,9 +17,7 @@ namespace FakeHttpService
         private readonly bool _serviceIdIsUserSpecified;
         private readonly IWebHost _host;
 
-        private readonly List<Tuple<Expression<Func<HttpRequest, bool>>, Func<HttpResponse, Task>>> _handlers;
-
-        private readonly IList<Expression<Func<HttpRequest, bool>>> _unusedHandlers;
+        private readonly ConcurrentBag<RequestHandler> _handlers = new ConcurrentBag<RequestHandler>();
 
         private readonly bool _throwOnUnusedHandlers;
 
@@ -28,8 +25,7 @@ namespace FakeHttpService
             string serviceId = null,
             bool throwOnUnusedHandlers = false)
         {
-            _handlers = new List<Tuple<Expression<Func<HttpRequest, bool>>, Func<HttpResponse, Task>>>();
-            _unusedHandlers = new List<Expression<Func<HttpRequest, bool>>>();
+         
             _throwOnUnusedHandlers = throwOnUnusedHandlers;
             ServiceId = serviceId ?? Guid.NewGuid().ToString();
 
@@ -52,16 +48,17 @@ namespace FakeHttpService
 
             BaseAddress = new Uri(_host
                                       .ServerFeatures.Get<IServerAddressesFeature>()
-                                       .Addresses.First());
+                                      .Addresses.First());
         }
 
         internal FakeHttpService Setup(Expression<Func<HttpRequest, bool>> condition, Func<HttpResponse, Task> response)
         {
-            _handlers.Add(new Tuple<Expression<Func<HttpRequest, bool>>, Func<HttpResponse, Task>>(condition, response));
-            _unusedHandlers.Add(condition);
+            var requestHandler = new RequestHandler(condition, response);
+
+            _handlers.Add(requestHandler);
 
             Log.Info("Setting up condition {condition}",
-                     new ConstantMemberEvaluationVisitor().Visit(condition));
+                     requestHandler.Description);
 
             return this;
         }
@@ -83,21 +80,19 @@ namespace FakeHttpService
             {
                 foreach (var handler in _handlers)
                 {
-                    if (!handler.Item1.Compile().Invoke(context.Request))
+                    if (!handler.Matches(context.Request))
                     {
                         continue;
                     }
-
-                    _unusedHandlers.Remove(handler.Item1);
-
-                    await handler.Item2(context.Response);
+                    
+                    await handler.Respond(context.Response);
 
                     return;
                 }
 
                 context.Response.StatusCode = 404;
 
-                Debug.WriteLine($"No handler for request{Environment.NewLine}{context.Request.Method} {context.Request.Path}");
+                Log.Warning($"No handler for request: {context.Request.Method} {context.Request.Path}");
             }
             catch (Exception e)
             {
@@ -117,24 +112,31 @@ namespace FakeHttpService
 
             FakeHttpServiceRepository.Unregister(this);
 
-            var shouldThrowForMissingRequests = _throwOnUnusedHandlers && _unusedHandlers.Any();
-
-            if (shouldThrowForMissingRequests)
+            if (_throwOnUnusedHandlers)
             {
-                var unusedHandlerSummary = _unusedHandlers
-                    .Select(h => new ConstantMemberEvaluationVisitor().Visit(h).ToString())
+                var requestHandlers = _handlers
+                    .Where(h => !h.HasBeenMatched)
+                    .ToArray();
+
+                if (!requestHandlers.Any())
+                {
+                    return;
+                }
+
+                var unusedHandlerSummary = requestHandlers
+                    .Select(h => h.Description)
                     .Aggregate((c, n) => $"{c}{Environment.NewLine}{n}");
 
-                var exception = new InvalidOperationException(
+                throw new InvalidOperationException(
                     $@"{GetType().Name} {ToString()} expected requests
 {unusedHandlerSummary}
 but they were not made.");
-
-                throw exception;
             }
         }
 
         public override string ToString() =>
-            _serviceIdIsUserSpecified ? $"\"{ServiceId}\" @ {BaseAddress}" : $"@ {BaseAddress}";
+            _serviceIdIsUserSpecified
+                ? $"\"{ServiceId}\" @ {BaseAddress}"
+                : $"@ {BaseAddress}";
     }
 }

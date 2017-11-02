@@ -208,6 +208,25 @@ namespace FakeHttpService.Tests
         }
 
         [Fact]
+        public void When_request_handler_condition_is_set_up_it_is_logged()
+        {
+            var log = new List<string>();
+
+            using (LogEvents.Subscribe(e => log.Add(e.ToLogString())))
+
+            using (var fakeService = new FakeHttpService(
+                    "my service")
+                .OnRequest(r => r.Path == "/this/is/the/path")
+                .RespondWith(async r =>
+                {
+                }))
+            {
+            }
+
+            log.Should().Contain(e => e.Contains("ℹ Setting up condition r => (r.Path == Convert(\"/this/is/the/path\", PathString))"));
+        }
+
+        [Fact]
         public async Task When_an_expected_request_is_not_made_but_FakeServer_is_configured_to_throw_Then_an_exception_is_thrown()
         {
             Uri address = null;
@@ -215,10 +234,12 @@ namespace FakeHttpService.Tests
             Action createServiceWithoutInvoking = () =>
             {
                 using (var fakeService = new FakeHttpService(
-                    "my service",
-                    throwOnUnusedHandlers: true)
+                        "my service",
+                        throwOnUnusedHandlers: true)
                     .OnRequest(r => r.Path == "foo")
-                    .RespondWith(async r => { await Task.Yield(); }))
+                    .RespondWith(async r =>
+                    {
+                    }))
                 {
                     address = fakeService.BaseAddress;
                 }
@@ -226,11 +247,13 @@ namespace FakeHttpService.Tests
 
             createServiceWithoutInvoking
                 .ShouldThrow<InvalidOperationException>(
-                "Because failing to perform a request can be an error")
+                    "Because failing to perform a request can be an error")
                 .Which
                 .Message
                 .Should()
-                .StartWith($"{nameof(FakeHttpService)} \"my service\" @ {address} expected requests");
+                .StartWith($"{nameof(FakeHttpService)} \"my service\" @ {address} expected requests")
+                .And
+                .Contain("r => (r.Path == Convert(\"foo\", PathString))");
         }
 
         [Fact]
