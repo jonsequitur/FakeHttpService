@@ -1,6 +1,6 @@
 ﻿namespace FakeHttpService
 {
-    public static class FakeHttpServiceWebServerExtensions
+    public static class FakeHttpServiceExtensions
     { 
         public static FakeHttpService WithContentAt(this FakeHttpService subject, string relativeUri, string content) 
         { 

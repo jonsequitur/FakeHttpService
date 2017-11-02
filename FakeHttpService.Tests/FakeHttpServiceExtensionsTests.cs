@@ -4,7 +4,7 @@ using Xunit;
 
 namespace FakeHttpService.Tests
 {
-    public class FakeServiceWebServerExtensionsTests 
+    public class FakeHttpServiceExtensionsTests 
     { 
         [Fact] 
         public async void When_specifying_content_for_a_relative_Uri_Then_that_content_is_returned() 
