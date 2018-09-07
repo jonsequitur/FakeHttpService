@@ -72,7 +72,7 @@ namespace FakeHttpService
 
         public FakeHttpService FailOnUnexpectedRequest()
         {
-            var rb = new ResponseBuilder(this, _ => true);
+            var rb = new ResponseBuilder(this, new Func<HttpRequest, bool>(_ => true));
             return rb.Fail();
         }
 

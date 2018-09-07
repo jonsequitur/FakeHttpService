@@ -8,13 +8,6 @@ using Newtonsoft.Json.Linq;
 
 namespace FakeHttpService.FilterBuilders
 {
-    public static class RequestFilterExpressionBuilderExtensions
-    {
-        public static  RequestFilterExpressionBuilder OnRequest(this FakeHttpService service)
-        {
-            return new RequestFilterExpressionBuilder(service);
-        }
-    }
     public class RequestFilterExpressionBuilder
     {
         private readonly FakeHttpService _fakeHttpService;

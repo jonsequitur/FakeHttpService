@@ -213,7 +213,6 @@ namespace FakeHttpService.Tests
             var log = new List<string>();
 
             using (LogEvents.Subscribe(e => log.Add(e.ToLogString())))
-
             using (var fakeService = new FakeHttpService(
                     "my service")
                 .OnRequest(r => r.Path == "/this/is/the/path")
