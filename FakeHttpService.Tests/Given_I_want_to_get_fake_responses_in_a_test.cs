@@ -304,25 +304,54 @@ namespace FakeHttpService.Tests
         }
 
         [Fact]
-        public void When_request_condition_met_Then_provides_response()
+        public void When_request_condition_met_Then_RespondWith_provides_response()
         {
-            const string responseBody = "a quick brown fox";
-
-            var path = new Uri("/some/path", UriKind.Relative);
-
-            using (var fakeService = new FakeHttpService()
-                .OnRequest(r => r.Path.ToString() == path.ToString())
-                .RespondWith(async r =>
-                {
-                    r.StatusCode = 200;
-                    r.ContentType = "text/plain";
-                    await r.Body.WriteTextAsUtf8BytesAsync(responseBody);
-                }))
+            for (var i = 0; i < 300; i++)
             {
-                var client = new HttpClient { BaseAddress = fakeService.BaseAddress };
+                const string responseBody = "a quick brown fox";
 
-                client.GetStringAsync(path).Result
-                    .Should().Be(responseBody);
+                var path = new Uri("/some/path", UriKind.Relative);
+
+                using (var fakeService = new FakeHttpService()
+                    .OnRequest(r => r.Path.ToString() == path.ToString())
+                    .RespondWith(async r =>
+                    {
+                        r.StatusCode = 200;
+                        r.ContentType = "text/plain";
+                        await r.Body.WriteTextAsUtf8BytesAsync(responseBody);
+                    }))
+                {
+                    var client = new HttpClient { BaseAddress = fakeService.BaseAddress };
+
+                    client.GetStringAsync(path).Result
+                          .Should().Be(responseBody);
+                }
+            }
+        }
+
+        [Fact]
+        public void When_request_condition_met_Then_Responds_provides_response()
+        {
+            for (var i = 0; i < 300; i++)
+            {
+                const string responseBody = "a quick brown fox";
+
+                var path = new Uri("/some/path", UriKind.Relative);
+
+                using (var fakeService = new FakeHttpService()
+                    .Responds(when: r => r.Path.ToString() == path.ToString(),
+                              respondWith: async r =>
+                              {
+                                  r.StatusCode = 200;
+                                  r.ContentType = "text/plain";
+                                  await r.Body.WriteTextAsUtf8BytesAsync(responseBody);
+                              }))
+                {
+                    var client = new HttpClient { BaseAddress = fakeService.BaseAddress };
+
+                    client.GetStringAsync(path).Result
+                          .Should().Be(responseBody);
+                }
             }
         }
 
@@ -338,7 +367,7 @@ namespace FakeHttpService.Tests
                 var client = new HttpClient { BaseAddress = fakeService.BaseAddress };
 
                 client.GetStringAsync(path).Result
-                    .Should().Be(fakeService.BaseAddress.AbsolutePath);
+                      .Should().Be(fakeService.BaseAddress.AbsolutePath);
             }
         }
 

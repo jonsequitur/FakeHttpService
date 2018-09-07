@@ -25,7 +25,6 @@ namespace FakeHttpService
             string serviceId = null,
             bool throwOnUnusedHandlers = false)
         {
-         
             _throwOnUnusedHandlers = throwOnUnusedHandlers;
             ServiceId = serviceId ?? Guid.NewGuid().ToString();
 
@@ -51,9 +50,12 @@ namespace FakeHttpService
                                       .Addresses.First());
         }
 
-        internal FakeHttpService Setup(Expression<Func<HttpRequest, bool>> condition, Func<HttpResponse, Task> response)
+        internal FakeHttpService AddHandler(RequestHandler requestHandler)
         {
-            var requestHandler = new RequestHandler(condition, response);
+            if (requestHandler == null)
+            {
+                throw new ArgumentNullException(nameof(requestHandler));
+            }
 
             _handlers.Add(requestHandler);
 
